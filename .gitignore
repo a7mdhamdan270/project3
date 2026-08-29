@@ -3,3 +3,6 @@ actions-runner/
 *.tar.gz
 vault/keys
 vault/data/
+docker-compose.yaml
+vault.sh
+vault/
