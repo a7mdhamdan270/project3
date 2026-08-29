@@ -1,0 +1,5 @@
+actions-runner/
+.env
+*.tar.gz
+vault/keys
+vault/data/
