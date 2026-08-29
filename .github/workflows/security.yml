@@ -1,0 +1,74 @@
+name: Security Scanning Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # 1. فحص الأسرار والـ Tokens المسرّبة
+  trufflehog-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog Scan
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$(pwd):/pwd" trufflesecurity/trufflehog:latest git file://pwd --only-verified > trufflehog.txt 2>&1 || true
+
+      - name: Upload TruffleHog Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trufflehog-report
+          path: trufflehog.txt
+
+  # 2. فحص ملف الـ Dockerfile (يبدأ بعد انتهاء TruffleHog)
+  hadolint-scan:
+    needs: trufflehog-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint Scan
+        continue-on-error: true
+        run: |
+          docker run --rm -i hadolint/hadolint hadolint - < Skills_Utilization/Dockerfile > hadolint.txt 2>&1 || true
+
+      - name: Upload Hadolint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: hadolint-report
+          path: hadolint.txt
+
+  # 3. فحص كود بايثون أمنياً (يبدأ بعد انتهاء Hadolint)
+  bandit-scan:
+    needs: hadolint-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit Scan
+        continue-on-error: true
+        run: |
+          bandit -r Skills_Utilization/ -f txt -o bandit.txt || true
+
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit.txt
